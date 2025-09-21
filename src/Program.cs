@@ -6,11 +6,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 var builder = Kernel.CreateBuilder();
 
+// Allow selecting model at runtime via environment variable, default to phi4-mini
+var modelId = Environment.GetEnvironmentVariable("LLAMA_MODEL") ?? "llama3.1";
+
 // Step 1: Register dependencies and model BEFORE building the kernel
 builder.Services.AddHttpClient(); // Provides HttpClient via DI
 builder.AddOllamaChatCompletion(
-   // modelId: "phi4-mini",
-    modelId: "llama3.1",
+    modelId: modelId,
     endpoint: new Uri("http://localhost:11434")
 );
 
