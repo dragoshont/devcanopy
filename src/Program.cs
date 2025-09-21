@@ -53,7 +53,6 @@ var executionSettings = new PromptExecutionSettings
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
 Console.ForegroundColor = ConsoleColor.Magenta; Console.WriteLine("Auto function invocation enabled."); Console.ResetColor();
-Console.WriteLine("Auto function invocation enabled.");
 
 var chat = kernel.GetRequiredService<IChatCompletionService>();
 
