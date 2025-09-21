@@ -21,7 +21,7 @@ builder.Plugins.AddFromType<WeatherPlugin>();
 
 // Step 3: Build kernel after all registrations
 var kernel = builder.Build();
-Console.WriteLine("Kernel initialized with Ollama connector and WeatherPlugin loaded.");
+Console.WriteLine($"Kernel initialized with Ollama connector and Model {modelId}.");
 
 // Diagnostic: list discovered functions to verify detection
 try

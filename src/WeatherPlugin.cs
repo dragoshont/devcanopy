@@ -78,7 +78,7 @@ public class WeatherPlugin
         var humidityDisplay = humidity.HasValue ? $"{humidity:0.#}%" : "N/A";
         var windDisplay = data.WindSpeedKmh.HasValue ? (data.WindDirectionDeg.HasValue ? $"Wind {data.WindSpeedKmh:0.#} km/h from {DegreesToCompass(data.WindDirectionDeg.Value)} ({data.WindDirectionDeg:0.#}°)" : $"Wind {data.WindSpeedKmh:0.#} km/h") : null;
         var windPhrase = !string.IsNullOrEmpty(windDisplay) ? $" {windDisplay}." : string.Empty;
-        return $"As of {data.FriendlyLocalTime}, the temperature is {tempDisplay} and the relative humidity is {humidityDisplay}.{windPhrase} Units: temperature in Celsius (F in parentheses), humidity in percent.";
+        return $"As of {data.FriendlyLocalTime}, the temperature is {tempDisplay} and the relative humidity is {humidityDisplay}.{windPhrase}";
     }
 
     /// <summary>
