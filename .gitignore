@@ -1,0 +1,196 @@
+# ---- Root .gitignore for devcanopy ----
+# Combines standard .NET, Blazor Web, and Editor (VS / VS Code / Rider) ignores.
+# Keep project-specific artifacts under version control explicitly by removing or negating patterns below.
+
+############################################
+# IDE / Editor
+############################################
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code workspace settings (keep if you want to share recommended settings via .vscode/settings.json)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.sample.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# JetBrains Rider / IntelliJ
+.idea/
+*.iml
+
+# Other editors
+*.swp
+*.swo
+*~
+
+############################################
+# Build Outputs / Binaries
+############################################
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Ll]ogs/
+[Tt]est[Rr]esults/
+[Bb]uild/
+artifacts/
+
+# .NET intermediate / generated
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.obj
+*.o
+*.log
+*.prt
+*.idb
+
+# Roslyn / Analyzer caches
+*.VisualState.xml
+*.vsp
+*.vspx
+*.vsps
+*.vspscc
+
+############################################
+# NuGet / Packages
+############################################
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+# project.assets.json and caches (normally generated)
+project.assets.json
+project.nuget.cache
+*.project.nuget.cache
+# Dotnet restore artifacts
+*.dotnet/
+
+############################################
+# Publish / Dist (Blazor & SPA interop)
+############################################
+# Blazor WebAssembly / Web output
+wwwroot/dist/
+wwwroot/build/
+wwwroot/css/*.map
+wwwroot/**/*.gz
+wwwroot/**/*.br
+
+# If using a Client (e.g., Blazor + JS interop or hybrid) with Node tooling
+node_modules/
+**/node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Frontend build outputs
+/dist/
+/build/
+.out/
+.next/
+.vite/
+.eslintcache
+.sass-cache/
+coverage/
+
+############################################
+# Static site tooling (optional)
+.cache/
+
+############################################
+# Temp / Generated Code
+############################################
+*.tmp
+*.temp
+*.bak
+*.orig
+*.g.cs
+*.g.i.cs
+*GeneratedCode*
+
+############################################
+# Logs
+############################################
+*.log
+logs/
+
+############################################
+# Database / Local Data
+############################################
+*.db
+*.sqlite
+*.mdf
+*.ldf
+
+############################################
+# Environment / Secrets (adjust if you intentionally track some env templates)
+############################################
+.env
+.env.*.local
+.env.local
+local.settings.json
+secrets.json
+appsettings.*.json
+!appsettings.Development.json          # Keep a baseline dev config (remove this line if you want it ignored too)
+
+############################################
+# Tooling / Cache
+############################################
+_ReSharper*/
+*.ReSharper*
+.resharper*/
+stylecop.json.user
+SonarQube/
+.sonar/
+.nyc_output/
+.nuget/packages.lock.json
+
+############################################
+# OS Files
+############################################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+############################################
+# Local model / AI artifacts
+############################################
+.ollama/
+models/
+models/**
+
+############################################
+# Azure / Cloud local artifacts
+############################################
+# Functions local artifacts
+bin/Release/net*/publish/
+
+############################################
+# Rider solution metadata
+*.sln.iml
+
+############################################
+# Ignore certificate/key artifacts unless intentionally committed
+############################################
+*.pfx
+*.p12
+*.key
+*.cer
+*.crt
+
+############################################
+# Misc
+############################################
+*.coverage
+*.coveragexml
+coverage*.json
+
+# End of file
