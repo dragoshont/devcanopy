@@ -1,0 +1,144 @@
+# Visual Studio / .NET Core general ignores
+.vs/
+.vscode/
+.project
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+**/bin/
+**/obj/
+*/bin/
+*/obj/
+
+# Publish folder
+publish/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Rider
+.idea/
+*.DotSettings.user
+.idea/*
+
+# JetBrains Rider caches
+.idea/.idea.*
+
+# Resharper
+_ReSharper*/
+*.ReSharper
+*.ReSharper*/
+*.DotSettings.user
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# Visual Studio cache/options
+*.vcxproj.user
+*.aps
+*.ncb
+*.opendb
+*.VC.db
+*.VC.opendb
+
+# DotCover
+*.dotCover
+
+# MSTest test Results
+TestResults/
+
+# NUNIT
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# Build artifacts
+*.dll
+*.exe
+*.app
+*.apk
+*.aab
+*.lib
+*.so
+*.dylib
+*.pdb
+*.cache
+*.log
+
+# Database files
+*.mdf
+*.ldf
+*.db
+*.sqlite
+
+# Local app settings (keep appsettings.json but ignore development secrets)
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# Node / Yarn
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage and test output
+coverage*/
+coverage.*
+*.lcov
+
+# Docker
+docker-compose.override.yml
+.env
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Lock files
+.lock-wscript
+
+# Ignore build output in src folders explicitly
+/src/**/bin/
+/src/**/obj/
+
+# NuGet packages cache
+*.nupkg
+
+# Ignore generated package folders
+**/publish/
+
+# Ignore Visual Studio Code workspace storage
+.vscode-test/
+
+# Ignore runtime framework files produced by Blazor builds in wwwroot
+/src/**/wwwroot/_framework/
+
+# Ignore frontend build/distribution output under wwwroot
+/src/**/wwwroot/dist/
+
+# Ignore node build artifacts under wwwroot
+/src/**/wwwroot/node_modules/

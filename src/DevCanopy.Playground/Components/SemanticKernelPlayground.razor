@@ -1,0 +1,111 @@
+@using DevCanopy.Playground.Services
+@inject IPlaygroundKernelService PlaygroundService
+
+@* Placeholder SemanticKernelPlayground component *@
+<div class="devcanopy-playground">
+    <div class="left-panel">
+        <h3>Configuration</h3>
+        <label>Model</label>
+        @if (models is null)
+        {
+            <div>Loading models...</div>
+        }
+        else
+        {
+            <select @bind="selectedModel">
+                @foreach (var m in models)
+                {
+                    <option value="@m">@m</option>
+                }
+            </select>
+        }
+    </div>
+    <div class="center-panel">
+        <h3>Interaction</h3>
+        <div class="prompt-row">
+            <textarea @bind="promptText" rows="3" placeholder="Type your prompt here..." class="prompt-input"></textarea>
+            <div class="prompt-actions">
+                <button @onclick="SendPrompt" disabled="@isStreaming || string.IsNullOrWhiteSpace(promptText)">Send</button>
+                <button @onclick="StartSampleChat" disabled="@isStreaming">Start sample chat</button>
+            </div>
+        </div>
+        <div class="chat-output">
+            @foreach (var msg in chat)
+            {
+                <div class="chat-msg">@msg</div>
+            }
+        </div>
+    </div>
+    <div class="right-panel">
+        <h3>Metadata & Plan</h3>
+        <pre>@metadata</pre>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<string>? models;
+    private string? selectedModel;
+    private List<string> chat = new();
+    private bool isStreaming = false;
+    private string metadata = string.Empty;
+    private string promptText = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        models = await PlaygroundService.GetAvailableModelsAsync();
+        selectedModel = models?.FirstOrDefault();
+    }
+
+    private async Task SendPrompt()
+    {
+        if (isStreaming || string.IsNullOrWhiteSpace(promptText)) return;
+        isStreaming = true;
+        chat.Add($"User: {promptText}");
+
+        await foreach (var chunk in PlaygroundService.ExecuteChatStreamAsync(new { Text = promptText }, new AiSettings()))
+        {
+            if (chat.Count == 1)
+            {
+                chat.Add($"AI: {chunk}");
+            }
+            else
+            {
+                chat[^1] += chunk;
+            }
+            StateHasChanged();
+        }
+
+        isStreaming = false;
+        promptText = string.Empty;
+    }
+
+    private async Task StartSampleChat()
+    {
+        if (isStreaming) return;
+        isStreaming = true;
+        chat.Add("User: Hello");
+        await foreach (var chunk in PlaygroundService.ExecuteChatStreamAsync(new { Text = "Hello" }, new AiSettings()))
+        {
+            if (chat.Count == 1)
+            {
+                chat.Add($"AI: {chunk}");
+            }
+            else
+            {
+                chat[^1] += chunk;
+            }
+            StateHasChanged();
+        }
+        isStreaming = false;
+    }
+}
+
+<style>
+.devcanopy-playground { display: grid; grid-template-columns: 280px 1fr 320px; gap: 16px; padding: 16px; }
+.left-panel, .center-panel, .right-panel { background: #fff; border: 1px solid #e0e0e0; padding: 12px; border-radius: 6px; }
+.chat-output { margin-top: 12px; max-height: 300px; overflow: auto; }
+.chat-msg { padding: 6px; border-bottom: 1px solid #f0f0f0; }
+.prompt-row { display:flex; gap:8px; }
+.prompt-input { flex:1; }
+.prompt-actions { display:flex; flex-direction:column; gap:6px; }
+</style>
