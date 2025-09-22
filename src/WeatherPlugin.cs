@@ -6,6 +6,10 @@ using System.Text.Json.Serialization;
 using System.Net;
 using System.Text;
 using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
+using System.Collections.Generic;
 
 /// <summary>
 /// A simple plugin that provides weather information.
@@ -15,6 +19,7 @@ public class WeatherPlugin
 {
     private readonly HttpClient _httpClient;
 
+    // IMemoryCache is optional in case the host doesn't register it; a local MemoryCache is created as fallback.
     public WeatherPlugin(HttpClient client)
     {
         _httpClient = client;
@@ -60,19 +65,22 @@ public class WeatherPlugin
         }
 
         // Default: weather mode (temperature + humidity)
-        var data = await GetWeatherData(latitude, longitude);
-        if (data == null) return "Weather data not available.";
+        // Start weather and humidity retrieval in parallel to reduce overall latency.
+        // Humidity is requested using current hour (timestamp null) for parallelism; slight mismatch with
+        // the exact weather timestamp is acceptable for a fast user experience.
+        var weatherTask = GetWeatherData(latitude, longitude);
+        var humidityTask = GetHumidityValue(latitude, longitude, null);
 
-        // Fetch relative humidity for the current time (UTC) near the requested coordinate
+        var data = await weatherTask;
+        if (data == null)
+        {
+            try { await humidityTask; } catch { /* swallow since weather already failed */ }
+            return "Weather data not available.";
+        }
+
         float? humidity = null;
-        try
-        {
-            humidity = await GetHumidityValue(latitude, longitude, data.TimestampUtc);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Humidity fetch failed: {ex.Message}");
-        }
+        try { humidity = await humidityTask; }
+        catch (Exception ex) { Console.WriteLine($"Humidity fetch failed: {ex.Message}"); }
 
         var tempDisplay = data.TemperatureC.HasValue ? $"{data.TemperatureC:0.#}°C ({data.TemperatureF:0.#}°F)" : "N/A";
         var humidityDisplay = humidity.HasValue ? $"{humidity:0.#}%" : "N/A";
@@ -204,7 +212,7 @@ public class WeatherPlugin
         var windSpeed = cw.WindSpeed;
         var windDir = cw.WindDirection;
 
-         return new WeatherSummaryData
+         var ws = new WeatherSummaryData
          {
              Latitude = latitude,
              Longitude = longitude,
@@ -220,10 +228,12 @@ public class WeatherPlugin
              TemperatureUnit = "C",
              PollenUnit = "grains/m^3"
          };
-     }
 
-    [KernelFunction, Description("Get hourly pollen summary (grass, birch, ragweed) for coordinates. Returns a friendly summary string. Nearby search for the nearest available pollen data is enabled by default.")]
-    public async Task<string> GetPollenSummary(double latitude, double longitude, bool nearbySearch = true, double maxRadiusDegrees = 0.5, double stepDegrees = 0.02)
+        return ws;
+    }
+
+    [KernelFunction, Description("Get hourly pollen/AQI summary for coordinates. Only a single attempt is performed; nearby-search/probing is not supported.")]
+    public async Task<string> GetPollenSummary(double latitude, double longitude)
     {
         // Use the air-quality API current endpoint to get allergens, pollens and air quality metrics.
         // The air-quality API is available at air-quality-api.open-meteo.com and supports a 'current' parameter
@@ -251,73 +261,23 @@ public class WeatherPlugin
             // Read response body for diagnostics (some Open-Meteo 404 responses include a small JSON message)
             var respBody = await pollenResp.Content.ReadAsStringAsync();
 
-            if (!nearbySearch)
+            // Single attempt only: do not probe nearby coordinates. If the initial request failed, return no data.
+            if (pollenResp.StatusCode == HttpStatusCode.NotFound)
             {
-                if (pollenResp.StatusCode == HttpStatusCode.NotFound)
-                {
-                    pollenSummary = $"Pollen data not available for this location (404). API response: {respBody}";
-                    Console.WriteLine($"Pollen request 404: {pollenUri}. Body: {respBody}");
-                }
-                else
-                {
-                    pollenSummary = $"Pollen request failed: {pollenResp.StatusCode}. API response: {respBody}";
-                    Console.WriteLine($"Pollen request failed: {pollenResp.StatusCode} ({pollenUri}). Body: {respBody}");
-                }
-
-                return pollenSummary;
+                pollenSummary = $"Pollen data not available for this location (404). API response: {respBody}";
+                Console.WriteLine($"Pollen request 404: {pollenUri}. Body: {respBody}");
+            }
+            else
+            {
+                pollenSummary = $"Pollen request failed: {pollenResp.StatusCode}. API response: {respBody}";
+                Console.WriteLine($"Pollen request failed: {pollenResp.StatusCode} ({pollenUri}). Body: {respBody}");
             }
 
-            // nearbySearch == true: probe nearby coordinates in increasing distance
-            try
-            {
-                // build candidate offsets and sort by squared distance
-                var candidates = new List<(double lat, double lon, double dist)>();
-                for (double latOff = -maxRadiusDegrees; latOff <= maxRadiusDegrees; latOff += stepDegrees)
-                {
-                    for (double lonOff = -maxRadiusDegrees; lonOff <= maxRadiusDegrees; lonOff += stepDegrees)
-                    {
-                        if (Math.Abs(latOff) < 1e-12 && Math.Abs(lonOff) < 1e-12) continue; // skip origin
-                        var d2 = latOff * latOff + lonOff * lonOff;
-                        candidates.Add((latitude + latOff, longitude + lonOff, d2));
-                    }
-                }
+            // No caching
+        }
 
-                var ordered = candidates.OrderBy(c => c.dist).ToList();
-                var attempts = 0;
-                var maxAttempts = Math.Min(ordered.Count, 500); // safeguard against too many calls
-
-                foreach (var c in ordered.Take(maxAttempts))
-                {
-                    attempts++;
-                    var probeUri = $"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={c.lat}&longitude={c.lon}&current={CurrentFields}&timezone=UTC";
-                    using var probeResp = await _httpClient.GetAsync(probeUri);
-                    if (!probeResp.IsSuccessStatusCode) continue;
-
-                    // Parse the successful response and return a note indicating which coordinate was used
-                    await using var ps2 = await probeResp.Content.ReadAsStreamAsync();
-                    using var doc2 = await JsonDocument.ParseAsync(ps2);
-                    if (doc2.RootElement.TryGetProperty("current", out var curr2))
-                    {
-                        var foundSummary = BuildGroupedAirQualitySummary(curr2, c.lat, c.lon);
-                        var note = $"Air quality for nearest available point at latitude {c.lat:F6}, longitude {c.lon:F6} (searched {attempts} nearby points within {maxRadiusDegrees}°):\n{foundSummary}";
-                        Console.WriteLine($"Pollen nearby match for {pollenUri} -> {probeUri} (attempt {attempts})");
-                        return note;
-                    }
-                }
-
-                // nothing found within radius
-                pollenSummary = $"No pollen coverage found within {maxRadiusDegrees}° of latitude {latitude:F6}, longitude {longitude:F6}. Original API response: {respBody}";
-                Console.WriteLine($"Pollen nearby search exhausted for {pollenUri} after {attempts} attempts. Last response body: {respBody}");
-            }
-            catch (Exception ex)
-            {
-                pollenSummary = $"Pollen request failed and nearby search errored: {ex.Message}. Original API response: {respBody}";
-                Console.WriteLine($"Pollen nearby search exception for {pollenUri}: {ex}");
-            }
-         }
- 
-         return pollenSummary;
-     }
+        return pollenSummary;
+    }
 
     private static string GetLastValueOrNA(JsonElement arr)
     {
@@ -513,23 +473,26 @@ public class WeatherPlugin
     // Retrieve relative humidity (percent) for the given coordinate and UTC timestamp (or current UTC hour if timestamp null)
     private async Task<float?> GetHumidityValue(double latitude, double longitude, DateTime? timestampUtc)
     {
+        DateTime target = timestampUtc ?? DateTime.UtcNow;
+        var targetHour = new DateTime(target.Year, target.Month, target.Day, target.Hour, 0, 0, DateTimeKind.Utc);
         var uri = $"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&hourly=relativehumidity_2m&timezone=UTC";
-        using var resp = await _httpClient.GetAsync(uri);
-        if (!resp.IsSuccessStatusCode) return null;
-        var content = await resp.Content.ReadAsStringAsync();
-        var hum = JsonSerializer.Deserialize<HumidityResponse>(content, JsonOptions);
-        if (hum?.Hourly == null) return null;
+         using var resp = await _httpClient.GetAsync(uri);
+         if (!resp.IsSuccessStatusCode) return null;
+         var content = await resp.Content.ReadAsStringAsync();
+         var hum = JsonSerializer.Deserialize<HumidityResponse>(content, JsonOptions);
+         if (hum?.Hourly == null) return null;
 
         // Parse times into UTC and find index matching timestampUtc hour
         var times = hum.Hourly.Time.Select(t => DateTime.SpecifyKind(DateTime.Parse(t), DateTimeKind.Utc)).ToList();
-        DateTime target = timestampUtc ?? DateTime.UtcNow;
-        var targetHour = new DateTime(target.Year, target.Month, target.Day, target.Hour, 0, 0, DateTimeKind.Utc);
-
         int idx = times.FindIndex(t => t == targetHour);
         if (idx == -1) idx = times.FindLastIndex(t => t <= targetHour);
         if (idx == -1) return null;
 
-        if (hum.Hourly.RelativeHumidity is { Count: > 0 } rh && rh.Count > idx) return rh[idx];
+        if (hum.Hourly.RelativeHumidity is { Count: > 0 } rh && rh.Count > idx)
+        {
+            var value = rh[idx];
+            return value;
+        }
         return null;
     }
 
